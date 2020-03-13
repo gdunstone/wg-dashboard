@@ -286,7 +286,6 @@ exports.initServer = (state, cb) => {
 
 	app.put("/api/peer/:id", (req, res) => {
 		const id = req.params.id;
-
 		if (!id) {
 			res.status(404).send({
 				msg: "NO_ID_PROVIDED_OR_FOUND",
@@ -297,7 +296,6 @@ exports.initServer = (state, cb) => {
 		const peer = state.server_config.peers.find(
 			el => parseInt(el.id, 10) === parseInt(id, 10)
 		);
-
 		if (!peer) {
 			res.status(404).send({
 				msg: "PEER_NOT_FOUND",
@@ -316,7 +314,6 @@ exports.initServer = (state, cb) => {
 			});
 			return;
 		}
-
 		const old_active = peer.active;
 
 		peer.device = req.body.device;
@@ -346,7 +343,6 @@ exports.initServer = (state, cb) => {
 							});
 							return;
 						}
-
 						res.send({
 							msg: "OK",
 						});
@@ -473,6 +469,7 @@ exports.initServer = (state, cb) => {
 			res.send({
 				msg: "OK",
 			});
+			return;
 		});
 	});
 
@@ -487,6 +484,9 @@ exports.initServer = (state, cb) => {
 
 		const ipCheck = new RegExp(
 			/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/
+		);
+		const ipCheckWithCidr = new RegExp(
+			/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\/([0-9]|[1-2][0-9]|3[0-2]){1}$/
 		);
 		const portCheck = new RegExp(
 			/^()([1-9]|[1-5]?[0-9]{2,4}|6[1-4][0-9]{3}|65[1-4][0-9]{2}|655[1-2][0-9]|6553[1-5])$/
@@ -516,63 +516,47 @@ exports.initServer = (state, cb) => {
 			return;
 		}
 
+		let validIPs = true;
+		const _allowedIPs = req.body.allowed_ips.replace(/ /g, "").split(",");
+		_allowedIPs.forEach(e => {
+			const match = /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))$/.test(
+				e
+			);
+			if (!match) {
+				validIPs = false;
+			}
+		});
+
+		if (!validIPs) {
+			res.status(500).send({
+				msg: "INVALID_IP_SETUP",
+			});
+			return;
+		}
+
+		state.server_config.allowed_ips = _allowedIPs;
 		state.server_config.ip_address = req.body.ip_address;
 		state.server_config.virtual_ip_address = req.body.virtual_ip_address;
 		state.server_config.dns = req.body.dns;
+		state.server_config.proxy_dns = req.body.proxy_dns;
 		state.server_config.cidr = req.body.cidr;
 		state.server_config.network_adapter = req.body.network_adapter;
 		state.server_config.config_path = req.body.config_path;
 		state.server_config.dns_over_tls = req.body.dns_over_tls;
 		state.server_config.tls_servername = req.body.tls_servername;
-
-		// disable old wireguard port
-		wireguardHelper.disableUFW(state.server_config.port, err => {
+		dataManager.saveServerConfig(state.server_config, (err) => {
 			if (err) {
-				if (err) {
-					console.error(
-						"PUT /api/server_settings COULD_NOT_DISABLE_UFW_RULE",
-						err
-					);
-					res.status(500).send({
-						msg: "COULD_NOT_DISABLE_UFW_RULE",
-					});
-					return;
-				}
-			}
-
-			// enable new wireguard port
-			wireguardHelper.enableUFW(req.body.port, err => {
-				if (err) {
-					console.error(
-						"PUT /api/server_settings COULD_NOT_ENABLE_UFW_RULE",
-						err
-					);
-					res.status(500).send({
-						msg: "COULD_NOT_ENABLE_UFW_RULE",
-					});
-					return;
-				}
-
-				// set new port in state
-				state.server_config.port = req.body.port;
-
-				// save state to server config file
-				dataManager.saveServerConfig(state.server_config, err => {
-					if (err) {
-						console.error(
-							"PUT /api/server_settings COULD_NOT_SAVE_SERVER_CONFIG",
-							err
-						);
-						res.status(500).send({
-							msg: "COULD_NOT_SAVE_SERVER_CONFIG",
-						});
-						return;
-					}
-
-					res.send({
-						msg: "OK",
-					});
+				console.error(
+					"PUT /api/server_settings/save COULD_NOT_SAVE_SERVER_CONFIG",
+					err
+				);
+				res.status(500).send({
+					msg: "COULD_NOT_SAVE_SERVER_CONFIG",
 				});
+				return;
+			}
+			res.status(200).send({
+				msg: "OK"
 			});
 		});
 	});
@@ -597,6 +581,8 @@ exports.initServer = (state, cb) => {
 			});
 			return;
 		}
+		let proxy_dns = false;
+
 
 		nunjucks.render(
 			"templates/config_client.njk",
@@ -606,6 +592,7 @@ exports.initServer = (state, cb) => {
 				allowed_ips: state.server_config.allowed_ips,
 				client_ip_address: item.virtual_ip,
 				cidr: state.server_config.cidr,
+				proxy_dns: state.server_config.proxy_dns,
 				dns: state.server_config.dns,
 				client_private_key: item.private_key,
 				server_endpoint: state.server_config.ip_address,
@@ -632,6 +619,8 @@ exports.initServer = (state, cb) => {
 	});
 
 	app.post("/api/saveandrestart", (req, res) => {
+
+
 		wireguardHelper.stopWireguard(err => {
 			if (err) {
 				res.status(500).send({
@@ -640,10 +629,10 @@ exports.initServer = (state, cb) => {
 				return;
 			}
 
-			dataManager.saveWireguardConfig(state.server_config, err => {
+			dataManager.saveBothConfigs(state.server_config, err => {
 				if (err) {
 					res.status(500).send({
-						msg: "COULD_NOT_SAVE_WIREGUARD_CONFIG",
+						msg: "COULD_NOT_SAVE_CONFIGS",
 					});
 					return;
 				}

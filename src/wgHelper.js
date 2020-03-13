@@ -82,7 +82,7 @@ exports.generateKeyPair = cb => {
 };
 
 exports.stopWireguard = cb => {
-	child_process.exec("systemctl stop wg-quick@wg0", (err, stdout, stderr) => {
+	child_process.exec("wg-quick down wg0", (err, stdout, stderr) => {
 		if (err || stderr) {
 			cb(err);
 			return;
@@ -94,7 +94,7 @@ exports.stopWireguard = cb => {
 
 exports.startWireguard = cb => {
 	child_process.exec(
-		"systemctl start wg-quick@wg0",
+		"wg-quick up wg0",
 		(err, stdout, stderr) => {
 			if (err || stderr) {
 				cb(err);
@@ -108,7 +108,7 @@ exports.startWireguard = cb => {
 
 exports.wireguardStatus = cb => {
 	child_process.exec(
-		"journalctl -u wg-quick@wg0.service -n 100",
+		"wg",
 		(err, stdout, stderr) => {
 			if (err || stderr) {
 				cb(err);
@@ -150,7 +150,7 @@ exports.getNetworkIP = cb => {
 
 exports.addPeer = (peer, cb) => {
 	child_process.exec(
-		`wg set wg0 peer ${peer.public_key} allowed-ips ${peer.allowed_ips}/32`,
+		`wg set wg0 peer ${peer.public_key} persistent-keepalive 25 allowed-ips ${peer.allowed_ips}/32`,
 		(err, stdout, stderr) => {
 			if (err || stderr) {
 				cb(err);
@@ -174,77 +174,4 @@ exports.deletePeer = (peer, cb) => {
 			cb(null);
 		}
 	);
-};
-
-exports.makeDashboardPrivate = (state, cb) => {
-	child_process.exec(
-		`ufw delete allow 3000 ; ufw deny in on ${state.server_config
-			.network_adapter || "eth0"} to any port 3000`,
-		(err, stdout, stderr) => {
-			if (err || stderr) {
-				cb(err);
-				return;
-			}
-
-			child_process.exec(
-				"ufw allow in on wg0 to any port 3000",
-				(err, stdout, stderr) => {
-					if (err || stderr) {
-						cb(err);
-						return;
-					}
-
-					cb(null, stdout.replace(/\n/, ""));
-				}
-			);
-		}
-	);
-};
-
-exports.makeDashboardPublic = (state, cb) => {
-	child_process.exec(
-		`ufw allow in on ${state.server_config.network_adapter ||
-			"eth0"} to any port 3000`,
-		(err, stdout, stderr) => {
-			if (err || stderr) {
-				cb(err);
-				return;
-			}
-
-			cb(null, stdout.replace(/\n/, ""));
-		}
-	);
-};
-
-exports.restartCoreDNS = cb => {
-	child_process.exec(`systemctl restart coredns`, (err, stdout, stderr) => {
-		if (err || stderr) {
-			cb(err);
-			return;
-		}
-
-		cb(null);
-	});
-};
-
-exports.enableUFW = (port, cb) => {
-	child_process.exec(`ufw allow ${port}`, (err, stdout, stderr) => {
-		if (err || stderr) {
-			cb(err);
-			return;
-		}
-
-		cb(null);
-	});
-};
-
-exports.disableUFW = (port, cb) => {
-	child_process.exec(`ufw delete allow ${port}`, (err, stdout, stderr) => {
-		if (err || stderr) {
-			cb(err);
-			return;
-		}
-
-		cb(null);
-	});
 };

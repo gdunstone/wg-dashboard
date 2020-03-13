@@ -108,7 +108,14 @@
 					<div id="peers-tab" class="tab-pane fade">
 						<div class="col-12 content-tab">
 							<div class="h4 card-title mb-4">
-								<span class="d-flex justify-content-between titleContent">Peers</span>
+								<div class="d-flex justify-content-between">
+									<h1 class="titleContent">Peers</h1>
+									<div class="text-right" style="margin-top: 0.7rem;">
+										<button class="btn btn-success btn-sm" onclick="retreiveLogs();"
+											title="View Wireguard Service Logs" data-toggle="modal"
+											data-target="#logsModal">Logs</button>
+									</div>
+								</div>
 								<span class="titleDescription">Configure your peers</span>
 							</div>
 
@@ -256,7 +263,7 @@
 								</div>
 
 								<div class="row mb-3">
-									<div class="col-md-4 col-sm-12">
+									<div class="col-md-3 col-sm-12">
 										<input type="text" id="virtual_ip_address" class="form-control"
 											value="{{ config.virtual_ip_address }}" disabled>
 										<label for="ip_address">Virtual Address <i class="fas fa-info-circle fa-sm"
@@ -264,18 +271,20 @@
 												title="VPN server address in virtual network - This and the CIDR setting will determine the used virtual network range"></i></label>
 									</div>
 
-									<div class="col-md-4 col-sm-12">
+									<div class="col-md-3 col-sm-12">
+										<input type="text" id="allowed_ips" class="form-control"
+											value="{{ config.allowed_ips|join(',') }}" disabled>
+										<label for="ip_address">Allowed IPs <i class="fas fa-info-circle fa-sm"
+												data-toggle="tooltip" data-placement="top"
+												title="Subnets for which the server should route traffic"></i></label>
+									</div>
+									<div class="col-md-3 col-sm-12">
 										<input type="number" id="cidr" class="form-control" value="{{ config.cidr }}"
 											disabled>
 										<label for="cidr">CIDR <i class="fas fa-info-circle fa-sm" data-toggle="tooltip"
 												data-placement="top" title="CIDR of the virtual address"></i></label>
 									</div>
-
-									<div class="col-md-4 col-sm-12">
-										<input type="text" id="dns" class="form-control" value="{{ config.dns }}" disabled>
-										<label for="dns">DNS <i class="fas fa-info-circle fa-sm" data-toggle="tooltip"
-												data-placement="top" title="DNS server ip that will be used by peers to resolve domain names"></i></label>
-									</div>
+									
 								</div>
 
 								<div class="row mb-3">
@@ -298,20 +307,43 @@
 												title="Path to the WireGuard config."></i></label>
 									</div>
 								</div>
-
 								<div class="row mb-3">
-									<div class="col-md-4 col-sm-12">
-										<div class="btn-group inputToggleContainer" id="dns_over_tls">
-											{% if config.dns_over_tls %}
-												<button class="btn gradientOff" id="disableTLSoverDNS" disabled>OFF</button>
-												<button class="btn gradientOn" id="enableTLSoverDNS" disabled>ON</button>
+									<div class="col-md-2 col-sm-12">
+										<div class="btn-group inputToggleContainer" data-hide="#dns_input" id="proxy_dns" {% if config.proxy_dns %}checked{% endif %}>
+											{% if config.proxy_dns %}
+												<button data-target="#proxy_dns" class="btn toggleButtonDNS gradientOff" data-toggle="#enableProxyDNS" id="disableProxyDNS" disabled>OFF</button>
+												<button data-target="#proxy_dns" class="btn toggleButtonDNS gradientOn" data-toggle="#disableProxyDNS" id="enableProxyDNS" disabled>ON</button>
 											{% else %}
-												<button class="btn gradientOn" id="disableTLSoverDNS" disabled>OFF</button>
-												<button class="btn gradientOff" id="enableTLSoverDNS" disabled>ON</button>
+												<button data-target="#proxy_dns" class="btn toggleButtonDNS gradientOn" data-toggle="#enableProxyDNS" id="disableProxyDNS" disabled>OFF</button>
+												<button data-target="#proxy_dns" class="btn toggleButtonDNS gradientOff" data-toggle="#disableProxyDNS" id="enableProxyDNS" disabled>ON</button>
 											{% endif %}
 
 										</div>
-										<label for="dns_over_tls" style="display: block;"><span>Enable DNS over TLS <i class="fas fa-info-circle fa-sm"
+										<label for="proxy_dns"><span>Proxy DNS <i class="fas fa-info-circle fa-sm"
+												data-toggle="tooltip" data-placement="top"
+												title="Toggle proxying of DNS"></i></span>
+												<br />
+										</label>
+									</div>
+									<div class="col-md-3 col-sm-12" id="dns_input" style="visibility: {{'visible' if config.proxy_dns else 'hidden'}};">
+										<input type="text" id="dns" class="form-control" value="{{ config.dns }}" disabled>
+										<label for="dns">Upstream DNS <i class="fas fa-info-circle fa-sm" data-toggle="tooltip"
+												data-placement="top" title="Upstream DNS server ip that will be used by peers to resolve domain names"></i></label>
+									</div>
+								</div>
+								<div class="row mb-3">
+									<div class="col-md-2 col-sm-12">
+										<div class="btn-group inputToggleContainer" data-hide="#tls_servername_input" id="dns_over_tls"  {% if config.dns_over_tls %}checked{% endif %}>
+											{% if config.dns_over_tls %}
+												<button data-target="#dns_over_tls" class="btn toggleButtonDNS gradientOff" data-toggle="#enableTLSoverDNS" id="disableTLSoverDNS" disabled>OFF</button>
+												<button data-target="#dns_over_tls" class="btn toggleButtonDNS gradientOn" data-toggle="#disableTLSoverDNS" id="enableTLSoverDNS" disabled>ON</button>
+											{% else %}
+												<button data-target="#dns_over_tls" class="btn toggleButtonDNS gradientOn" data-toggle="#enableTLSoverDNS" id="disableTLSoverDNS" disabled>OFF</button>
+												<button data-target="#dns_over_tls" class="btn toggleButtonDNS gradientOff" data-toggle="#disableTLSoverDNS" id="enableTLSoverDNS" disabled>ON</button>
+											{% endif %}
+
+										</div>
+										<label for="dns_over_tls" ><span>Enable DNS over TLS <i class="fas fa-info-circle fa-sm"
 												data-toggle="tooltip" data-placement="top"
 												title="Toggle usage of DNS over TLS - this basically encrypts dns queries before they are sent to the configured DNS server"></i></span>
 												<br />
@@ -319,7 +351,7 @@
 										</label>
 									</div>
 
-									<div class="col-md-4 col-sm-12" style="visibility: {{ 'visible' if config.dns_over_tls else 'hidden' }}" id="tls_servername_input">
+									<div class="col-md-4 col-sm-12" id="tls_servername_input" style="visibility: {{'visible' if config.dns_over_tls else 'hidden'}};">
 										<input type="text" id="tls_servername" class="form-control"
 											value="{{ config.tls_servername }}" value="{{ config.tls_servername }}" disabled>
 										<label for="tls_servername">TLS Servername <i class="fas fa-info-circle fa-sm"
@@ -376,8 +408,7 @@
 </div>
 
 <script>
-	let private_traffic = {{ config.private_traffic }}
-	let _config = {{ config | dump | safe }}
-	let config = {{ config | dump | safe }}
+	let _config = {{ config | dump | safe }};
+	let config = {{ config | dump | safe }};
 </script>
 {% endblock %}

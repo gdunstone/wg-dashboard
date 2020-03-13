@@ -1,0 +1,20 @@
+#!/bin/bash
+
+## The below is modified from https://github.com/activeeos/wireguard-docker
+## The below is modified from https://github.com/cmulk/wireguard-docker
+
+# Handle shutdown behavior
+finish () {
+    echo "$(date): Shutting down Wireguard"
+    wg-quick down wg0
+    exit 0
+}
+
+
+trap finish SIGTERM SIGINT SIGQUIT
+
+/usr/bin/coredns -conf=/etc/coredns/Corefile &
+
+node src/server.js
+# sleep infinity &
+# wait $!

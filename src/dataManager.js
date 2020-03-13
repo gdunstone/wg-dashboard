@@ -1,7 +1,8 @@
 const nunjucks = require("nunjucks");
 const fs = require("fs");
 const wgHelper = require("./wgHelper");
-
+const DATA_DIR=process.env.DATA_DIR || "./";
+const path = require("path");
 /**
  * Save Dashboard and WireGuard configuration to disk
  */
@@ -19,13 +20,14 @@ exports.saveBothConfigs = (server_config, cb) => {
 			}
 
 			cb();
+			return;
 		});
 	});
 };
 
 exports.saveServerConfig = (server_config, cb) => {
 	fs.writeFile(
-		"./server_config.json",
+		path.join(DATA_DIR, "server_config.json"),
 		JSON.stringify(server_config, null, 2),
 		{mode: 0o600},
 		cb
@@ -33,7 +35,7 @@ exports.saveServerConfig = (server_config, cb) => {
 };
 
 exports.loadServerConfig = cb => {
-	fs.stat("./server_config.json", err => {
+	fs.stat(path.join(DATA_DIR, "server_config.json"), err => {
 		if (err) {
 			wgHelper.getNetworkAdapter((err, network_adapter) => {
 				if (err) {
@@ -52,16 +54,16 @@ exports.loadServerConfig = cb => {
 						users: [],
 						public_key: "",
 						ip_address: network_ip,
-						virtual_ip_address: "10.13.37.1",
+						virtual_ip_address: "10.0.0.1",
 						cidr: "24",
 						port: "58210",
 						dns: "1.1.1.1",
+						proxy_dns: false,
 						network_adapter: network_adapter,
 						config_path: "/etc/wireguard/wg0.conf",
 						allowed_ips: ["0.0.0.0/0"],
 						peers: [],
-						private_traffic: false,
-						dns_over_tls: true,
+						dns_over_tls: false,
 						tls_servername: "tls.cloudflare-dns.com",
 					};
 
@@ -79,7 +81,7 @@ exports.loadServerConfig = cb => {
 			return;
 		}
 
-		fs.readFile("./server_config.json", (err, buffer) => {
+		fs.readFile(path.join(DATA_DIR, "server_config.json"), (err, buffer) => {
 			if (err) {
 				cb(err);
 				return;
@@ -153,16 +155,9 @@ exports.saveWireguardConfig = (server_config, cb) => {
 				cb(err);
 				return;
 			}
-
-			// restart coredns
-			wgHelper.restartCoreDNS(err => {
-				if (err) {
-					cb(err);
-					return;
-				}
-
-				cb(null);
-			});
+			// no need to restart coredns because we are running it with reload plugin
+			cb(null);
 		});
 	});
+
 };

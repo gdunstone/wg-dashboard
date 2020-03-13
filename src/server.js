@@ -21,11 +21,25 @@ function main() {
 
 		wireguardHelper.checkServerKeys(state, state => {
 			httpServer.initServer(state, () => {
-				console.log(
-					`WireGuard-Dashboard listening on port ${
-						state.config.port
-					}!`
-				);
+				dataManager.saveWireguardConfig(state.server_config, err => {
+					if (err) {
+						console.log("COULD_NOT_SAVE_WIREGUARD_CONFIG");
+						return;
+					}
+
+					wireguardHelper.startWireguard(err => {
+						if (err) {							
+							console.log("COULD_NOT_START_WIREGUARD");
+							return;
+						}
+						console.log(
+							`WireGuard-Dashboard listening on port ${
+								state.config.port
+							}!`
+						);
+					});
+				});
+				
 			});
 		});
 	});

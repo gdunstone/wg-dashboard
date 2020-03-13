@@ -130,25 +130,26 @@ $(document).ready(() => {
 		}
 	});
 
-	$("#enableTLSoverDNS").on("click", e => {
-		if (!$(e.currentTarget).hasClass("gradientOn")) {
-			$("#disableTLSoverDNS").removeClass("gradientOn");
-			$("#disableTLSoverDNS").addClass("gradientOff");
-			$(e.currentTarget).removeClass("gradientOff");
-			$(e.currentTarget).addClass("gradientOn");
-			config.dns_over_tls = true;
-		}
+	$(".toggleButtonDNS").on('click', e => {
+		let dataToggleSelector = $(e.currentTarget).attr("data-toggle");
+		let whichState = Boolean($(e.currentTarget)[0].id.includes('enable'));
+		$(dataToggleSelector).toggleClass('gradientOn')
+							 .toggleClass("gradientOff");
+
+		$(e.currentTarget).toggleClass("gradientOff")
+						  .toggleClass("gradientOn");
+
+		let dataTargetSelector = $(e.currentTarget).attr("data-target");
+		let key = $(dataTargetSelector)[0].id;
+		config[key] = whichState;
+
+		$(dataTargetSelector).prop("checked", whichState);
+
+		let dataHideSelector = $(dataTargetSelector).attr("data-hide");
+
+		$(dataHideSelector).css("visibility", whichState?"visible":"hidden");
 	});
 
-	$("#disableTLSoverDNS").on("click", e => {
-		if (!$(e.currentTarget).hasClass("gradientOn")) {
-			$("#enableTLSoverDNS").removeClass("gradientOn");
-			$("#enableTLSoverDNS").addClass("gradientOff");
-			$(e.currentTarget).removeClass("gradientOff");
-			$(e.currentTarget).addClass("gradientOn");
-			config.dns_over_tls = false;
-		}
-	});
 
 	// edit server_settings
 	$("#server_settings").on("click", e => {
@@ -161,6 +162,9 @@ $(document).ready(() => {
 			$("#ip_address")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
+			$("#allowed_ips")
+				.attr("disabled", false)
+				.css("color", "#4285F4");
 			$("#virtual_ip_address")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
@@ -170,6 +174,7 @@ $(document).ready(() => {
 			$("#cidr")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
+		
 			$("#dns")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
@@ -179,16 +184,18 @@ $(document).ready(() => {
 			$("#config_path")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
+			
 			$("#tls_servername")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
 			$("#dns_over_tls")
 				.attr("disabled", false)
 				.css("color", "#4285F4");
-			$("#enableTLSoverDNS").attr("disabled", false);
-			$("#disableTLSoverDNS").attr("disabled", false);
+
+			$(".toggleButtonDNS").attr('disabled', false);
 		} else if ($(e.currentTarget).hasClass("saveBtn")) {
 			const ip_address = $("#ip_address").val();
+			const allowed_ips = $("#allowed_ips").val();
 			const virtual_ip_address = $("#virtual_ip_address").val();
 			const port = $("#port").val();
 			const cidr = $("#cidr").val();
@@ -196,22 +203,26 @@ $(document).ready(() => {
 			const public_key = $("#public_key").val();
 			const network_adapter = $("#network_adapter").val();
 			const config_path = $("#config_path").val();
-			const dns_over_tls = $("#dns_over_tls").is(":checked");
 			const tls_servername = $("#tls_servername").val();
+
+			const proxy_dns = Boolean($("#proxy_dns").prop("checked"));
+			const dns_over_tls = Boolean($("#dns_over_tls").prop("checked"));
 
 			const req = $.ajax({
 				url: `/api/server_settings/save`,
 				method: "PUT",
 				data: JSON.stringify({
 					ip_address: ip_address,
+					allowed_ips: allowed_ips,
 					virtual_ip_address: virtual_ip_address,
 					port: port,
 					cidr: cidr,
+					proxy_dns: config.proxy_dns,
 					dns: dns,
 					public_key: public_key,
 					network_adapter: network_adapter,
 					config_path: config_path,
-					dns_over_tls: dns_over_tls,
+					dns_over_tls: config.dns_over_tls,
 					tls_servername: tls_servername
 				}),
 				contentType: "application/json; charset=utf-8",
@@ -230,6 +241,9 @@ $(document).ready(() => {
 				$("#virtual_ip_address")
 					.attr("disabled", true)
 					.css("color", "#495057");
+				$("#allowed_ips")
+					.attr("disabled", true)
+					.css("color", "#495057");					
 				$("#port")
 					.attr("disabled", true)
 					.css("color", "#495057");
@@ -254,8 +268,10 @@ $(document).ready(() => {
 				$("#dns_over_tls")
 					.attr("disabled", true)
 					.css("color", "#495057");
-				$("#enableTLSoverDNS").attr("disabled", true);
-				$("#disableTLSoverDNS").attr("disabled", true);
+				$("#proxy_dns")
+					.attr("disabled", true)
+					.css("color", "#495057");
+				$(".toggleButtonDNS").attr('disabled', true);
 			});
 
 			req.catch(function(data) {
@@ -396,7 +412,7 @@ $(document).ready(() => {
 		const target = $(e.currentTarget);
 
 		if (target[0].id === "dns_over_tls") {
-			const enableDNSOverTLS = $("#dns_over_tls").is(":checked");
+			const enableDNSOverTLS = $("#dns_over_tls").prop("checked");
 			config[target[0].id] = enableDNSOverTLS;
 			checkToast();
 
@@ -404,6 +420,18 @@ $(document).ready(() => {
 				$("#tls_servername_input").css("visibility", "visible");
 			} else {
 				$("#tls_servername_input").css("visibility", "hidden");
+			}
+			return;
+		}
+		if (target[0].id === "proxy_dns") {
+			const enableProxyDNS = $("#proxy_dns").prop("checked");
+			config[target[0].id] = enableProxyDNS;
+			checkToast();
+
+			if (enableProxyDNS) {
+				$("#dns").css("visibility", "visible");
+			} else {
+				$("#dns").css("visibility", "hidden");
 			}
 			return;
 		}
@@ -660,7 +688,11 @@ function makeQR(id) {
 		.val();
 	document.getElementById("qrcode").innerHTML = "";
 
-	const qrcode = new QRCode(document.getElementById("qrcode"));
+	const qrcode = new QRCode(document.getElementById("qrcode"),
+			{
+				correctLevel: QRCode.CorrectLevel.L
+			}
+		);
 
 	$.get(`/api/download/${id}`, data => {
 		qrcode.makeCode(data);
